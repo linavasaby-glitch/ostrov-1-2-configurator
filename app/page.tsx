@@ -882,7 +882,7 @@ export default function Home() {
             <span>{readinessOption.label}</span>
             <div><strong>{activeRoute.title}</strong><p>{activeRoute.instruction}</p></div>
             <div className="route-key" aria-label="Цвета маршрутов">
-              {readinessOptions.map((option) => <i key={option.id} className={readiness === option.id ? "active" : ""} style={{ "--route-color": routeColors[option.id] } as React.CSSProperties}>{option.label.replace(" месяцев", " мес")}</i>)}
+              {readinessOptions.map((option) => <i key={option.id} className={readiness === option.id ? "active" : ""} style={{ "--route-color": routeColors[option.id] } as React.CSSProperties}>{option.label.split(" ")[0]} мес</i>)}
             </div>
           </div>
           <p className="interaction-help" id="interaction-help">Перетащите объект, чтобы переместить. Нажмите, чтобы удалить. Стрелки клавиатуры двигают объект точно.</p>
