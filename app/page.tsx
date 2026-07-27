@@ -181,8 +181,75 @@ const routes: Record<IslandShape, Record<Readiness, AgeRoute>> = {
   },
 };
 
+const routeColors: Record<Readiness, string> = {
+  age6: "#b36b50",
+  age12: "#d85235",
+  age18: "#3f8878",
+  age24: "#4f6fa8",
+};
+
 function pointsToPolygon(points: Point[]) {
   return points.map(([x, y]) => `${x}% ${y}%`).join(", ");
+}
+
+function smoothClosedPath(points: Point[], tension = .72) {
+  if (points.length < 3) return "";
+  const segment = (index: number) => {
+    const previous = points[(index - 1 + points.length) % points.length];
+    const current = points[index % points.length];
+    const next = points[(index + 1) % points.length];
+    const after = points[(index + 2) % points.length];
+    const cp1: Point = [
+      current[0] + (next[0] - previous[0]) * tension / 6,
+      current[1] + (next[1] - previous[1]) * tension / 6,
+    ];
+    const cp2: Point = [
+      next[0] - (after[0] - current[0]) * tension / 6,
+      next[1] - (after[1] - current[1]) * tension / 6,
+    ];
+    return `C ${cp1[0].toFixed(2)} ${cp1[1].toFixed(2)}, ${cp2[0].toFixed(2)} ${cp2[1].toFixed(2)}, ${next[0]} ${next[1]}`;
+  };
+  return `M ${points[0][0]} ${points[0][1]} ${points.map((_, index) => segment(index)).join(" ")} Z`;
+}
+
+function smoothOpenPath(points: Point[], tension = .65) {
+  if (points.length < 2) return "";
+  if (points.length === 2) return `M ${points[0][0]} ${points[0][1]} L ${points[1][0]} ${points[1][1]}`;
+  return points.slice(0, -1).reduce((path, current, index) => {
+    const previous = points[Math.max(0, index - 1)];
+    const next = points[index + 1];
+    const after = points[Math.min(points.length - 1, index + 2)];
+    const cp1: Point = [
+      current[0] + (next[0] - previous[0]) * tension / 6,
+      current[1] + (next[1] - previous[1]) * tension / 6,
+    ];
+    const cp2: Point = [
+      next[0] - (after[0] - current[0]) * tension / 6,
+      next[1] - (after[1] - current[1]) * tension / 6,
+    ];
+    return `${path} C ${cp1[0].toFixed(2)} ${cp1[1].toFixed(2)}, ${cp2[0].toFixed(2)} ${cp2[1].toFixed(2)}, ${next[0]} ${next[1]}`;
+  }, `M ${points[0][0]} ${points[0][1]}`);
+}
+
+function renderObjectGlyph(shape: string) {
+  const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  if (["liquid-tile", "membrane", "air-pad"].includes(shape)) return <svg className="object-glyph" viewBox="0 0 32 24" aria-hidden="true"><rect x="4" y="3" width="24" height="18" rx="5" {...common} /><path d="M7 14c4-5 8 5 12 0s7 1 9-2" {...common} /><circle cx="11" cy="9" r="1.5" fill="currentColor" /></svg>;
+  if (shape === "path") return <svg className="object-glyph" viewBox="0 0 36 18" aria-hidden="true"><path d="M2 13C8 2 14 16 20 6s10 5 14-2" {...common} /><path d="M7 11l3 3m8-7 3 3m7-4 3 3" {...common} /></svg>;
+  if (["ramp", "step", "podium"].includes(shape)) return <svg className="object-glyph" viewBox="0 0 32 24" aria-hidden="true"><path d="M4 19h24V5L4 14z" {...common} /><path d="M10 13v6m7-9v9m6-12v12" {...common} /></svg>;
+  if (shape === "tunnel" || shape === "niche") return <svg className="object-glyph" viewBox="0 0 32 24" aria-hidden="true"><path d="M4 20V12a12 10 0 0 1 24 0v8" {...common} /><path d="M10 20v-7a6 5 0 0 1 12 0v7" {...common} /></svg>;
+  if (shape === "rail") return <svg className="object-glyph" viewBox="0 0 36 18" aria-hidden="true"><path d="M3 6h30M3 12h30M7 3v12m22-12v12" {...common} /></svg>;
+  if (shape === "mirror") return <svg className="object-glyph" viewBox="0 0 30 22" aria-hidden="true"><rect x="4" y="3" width="22" height="16" rx="3" {...common} /><path d="M8 15 18 5m-3 12 7-7" {...common} /></svg>;
+  if (["ball-track", "disappear-track"].includes(shape)) return <svg className="object-glyph" viewBox="0 0 38 18" aria-hidden="true"><path d="M3 9h32" {...common} /><circle cx="9" cy="9" r="3" {...common} /><circle cx="27" cy="9" r="3" {...common} /></svg>;
+  if (shape === "slider") return <svg className="object-glyph" viewBox="0 0 36 18" aria-hidden="true"><path d="M4 9h28" {...common} /><circle cx="22" cy="9" r="4" fill="currentColor" /></svg>;
+  if (["roller", "cylinder", "soft-roller"].includes(shape)) return <svg className="object-glyph" viewBox="0 0 34 20" aria-hidden="true"><rect x="3" y="4" width="28" height="12" rx="6" {...common} /><path d="M10 5v10m7-10v10m7-10v10" {...common} /></svg>;
+  if (shape === "block") return <svg className="object-glyph" viewBox="0 0 30 24" aria-hidden="true"><rect x="5" y="4" width="20" height="16" rx="3" {...common} /><path d="m6 6 18 12M24 6 6 18" {...common} /></svg>;
+  if (["peek-window", "color-window", "pockets"].includes(shape)) return <svg className="object-glyph" viewBox="0 0 34 22" aria-hidden="true"><rect x="3" y="3" width="12" height="16" rx="2" {...common} /><rect x="19" y="3" width="12" height="16" rx="2" {...common} /><path d="M15 3v16m4-16v16" {...common} /></svg>;
+  if (["liquid-discs", "gears", "peek-holes"].includes(shape)) return <svg className="object-glyph" viewBox="0 0 36 22" aria-hidden="true"><circle cx="10" cy="11" r="6" {...common} /><circle cx="26" cy="11" r="6" {...common} /><circle cx="10" cy="11" r="2" fill="currentColor" /><circle cx="26" cy="11" r="2" fill="currentColor" /></svg>;
+  if (shape === "column") return <svg className="object-glyph" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" {...common} /><circle cx="12" cy="12" r="3" fill="currentColor" /></svg>;
+  if (shape === "nest") return <svg className="object-glyph" viewBox="0 0 30 24" aria-hidden="true"><ellipse cx="15" cy="12" rx="11" ry="8" {...common} /><ellipse cx="15" cy="12" rx="6" ry="4" {...common} /></svg>;
+  if (shape === "screen") return <svg className="object-glyph" viewBox="0 0 36 18" aria-hidden="true"><path d="M3 13C10 2 17 16 24 6c3-4 6-2 9 1" {...common} strokeDasharray="3 2" /></svg>;
+  if (shape === "silicone" || shape === "sound-panel") return <svg className="object-glyph" viewBox="0 0 32 22" aria-hidden="true"><circle cx="9" cy="8" r="2" fill="currentColor" /><circle cx="16" cy="6" r="2" fill="currentColor" /><circle cx="23" cy="9" r="2" fill="currentColor" /><circle cx="12" cy="15" r="2" fill="currentColor" /><circle cx="21" cy="16" r="2" fill="currentColor" /></svg>;
+  return <svg className="object-glyph" viewBox="0 0 30 22" aria-hidden="true"><rect x="4" y="3" width="22" height="16" rx="5" {...common} /><circle cx="15" cy="11" r="3" fill="currentColor" /></svg>;
 }
 
 function polygonArea(points: Point[]) {
@@ -435,6 +502,7 @@ export default function Home() {
   const mobileItems = instances.filter((item) => item.surface === "mobile");
   const centerOption = centerOptions.find((option) => option.id === centerMode)!;
   const activeShape = shapeOptions.find((option) => option.id === islandShape)!;
+  const activeShapePath = smoothClosedPath(activeShape.points);
   const islandWidth = activeShape.aspect >= 1 ? diameter : diameter * activeShape.aspect;
   const islandHeight = activeShape.aspect >= 1 ? diameter / activeShape.aspect : diameter;
   const area = diameter * diameter * activeShape.areaFactor;
@@ -693,8 +761,9 @@ export default function Home() {
       } as React.CSSProperties}
     >
       <span className={`object-body shape-${item.shape}`} aria-hidden="true">
-        <span className="object-symbol">{item.mark}</span>
+        {renderObjectGlyph(item.shape)}
       </span>
+      <span className="plan-object-name" aria-hidden="true">{item.name}</span>
       <small className="object-label">{item.name}{(selected[item.id] ?? 0) > 1 ? ` ${item.copy}` : ""}<span>Нажать — удалить</span></small>
     </button>;
   }
@@ -756,7 +825,7 @@ export default function Home() {
             <div className="section-title"><h2>Форма</h2><span>{shapeOptions.find((option) => option.id === islandShape)!.label}</span></div>
             <div className="shape-list">
               {shapeOptions.map((option) => <button key={option.id} className={islandShape === option.id ? "active" : ""} aria-pressed={islandShape === option.id} onClick={() => chooseShape(option.id)}>
-                <i className="shape-icon" style={{ clipPath: `polygon(${pointsToPolygon(option.points)})`, aspectRatio: `${option.aspect}` }} aria-hidden="true" /><span><strong>{option.label}</strong><small>{option.note}</small></span>
+                <svg className="shape-icon" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ aspectRatio: `${option.aspect}` }} aria-hidden="true"><path d={smoothClosedPath(option.points)} /></svg><span><strong>{option.label}</strong><small>{option.note}</small></span>
               </button>)}
             </div>
           </section>
@@ -812,6 +881,9 @@ export default function Home() {
           <div className="route-summary" aria-live="polite">
             <span>{readinessOption.label}</span>
             <div><strong>{activeRoute.title}</strong><p>{activeRoute.instruction}</p></div>
+            <div className="route-key" aria-label="Цвета маршрутов">
+              {readinessOptions.map((option) => <i key={option.id} className={readiness === option.id ? "active" : ""} style={{ "--route-color": routeColors[option.id] } as React.CSSProperties}>{option.label.replace(" месяцев", " мес")}</i>)}
+            </div>
           </div>
           <p className="interaction-help" id="interaction-help">Перетащите объект, чтобы переместить. Нажмите, чтобы удалить. Стрелки клавиатуры двигают объект точно.</p>
 
@@ -826,27 +898,45 @@ export default function Home() {
                   "--island-scale": islandScale,
                   "--island-width": `${activeShape.aspect >= 1 ? 100 : activeShape.aspect * 100}%`,
                   "--island-height": `${activeShape.aspect >= 1 ? 100 / activeShape.aspect : 100}%`,
-                  "--shape-polygon": `polygon(${pointsToPolygon(activeShape.points)})`,
                 } as React.CSSProperties}
               >
-                <div className="island-surface" aria-hidden="true" />
-                <div className="island-grid" aria-hidden="true" />
-                <svg className={`route-overlay ${layers.links ? "" : "layer-hidden"}`} viewBox="0 0 100 100" preserveAspectRatio="none" aria-label={`Маршрут: ${activeRoute.title}`}>
+                <svg className="route-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label={`Все возрастные маршруты. Выбран: ${activeRoute.title}`}>
                   <defs>
+                    <radialGradient id={`island-fill-${islandShape}`} cx=".34" cy=".24" r=".85">
+                      <stop offset="0" stopColor="#ffffff" stopOpacity=".72" />
+                      <stop offset=".38" stopColor="#eef2f1" />
+                      <stop offset="1" stopColor="#dfe7e6" />
+                    </radialGradient>
+                    <pattern id={`island-grid-${islandShape}`} width="8" height="8" patternUnits="userSpaceOnUse">
+                      <path d="M 8 0 L 0 0 0 8" fill="none" stroke="#566967" strokeOpacity=".09" strokeWidth=".35" />
+                    </pattern>
                     <clipPath id={`shape-clip-${islandShape}`}>
-                      <polygon points={activeShape.points.map((point) => point.join(",")).join(" ")} />
+                      <path d={activeShapePath} />
                     </clipPath>
                   </defs>
+                  <path className="island-fill" d={activeShapePath} fill={`url(#island-fill-${islandShape})`} />
+                  <path className="island-grid-fill" d={activeShapePath} fill={`url(#island-grid-${islandShape})`} />
                   <g clipPath={`url(#shape-clip-${islandShape})`}>
                     <rect className="parent-shore" x="0" y={parentCutY} width="100" height={100 - parentCutY} />
-                    {activeRoute.placement && <circle className="reach-sector" cx={activeRoute.placement.point[0]} cy={activeRoute.placement.point[1]} r={activeRoute.placement.radius} />}
-                    <polyline className={`route-line route-${readiness}`} points={activeRoute.path.map((point) => point.join(",")).join(" ")} />
                   </g>
-                  <polygon className="perimeter-line" points={activeShape.points.map((point) => point.join(",")).join(" ")} />
-                  {activeRoute.stops.map((stop, index) => <g className={`route-stop stop-${stop.kind ?? "action"}`} key={`${stop.label}-${index}`} transform={`translate(${stop.point[0]} ${stop.point[1]})`}>
-                    <circle r={stop.kind === "start" ? 2.25 : 1.8} />
-                    <text x="2.8" y="-2.2">{stop.label}</text>
-                  </g>)}
+                  <g className={`all-routes ${layers.links ? "" : "routes-hidden"}`}>
+                    {readinessOptions.map((option) => {
+                      const route = routes[islandShape][option.id];
+                      const isSelected = option.id === readiness;
+                      return <g className={`age-route ${isSelected ? "selected" : ""}`} style={{ color: routeColors[option.id] }} key={option.id}>
+                        <g clipPath={`url(#shape-clip-${islandShape})`}>
+                          {isSelected && route.placement && <circle className="reach-sector" cx={route.placement.point[0]} cy={route.placement.point[1]} r={route.placement.radius} />}
+                          <path className="route-line" d={smoothOpenPath(route.path)} />
+                        </g>
+                        <circle className="route-age-dot" cx={route.path[0][0]} cy={route.path[0][1]} r={isSelected ? 1.6 : 1.05} />
+                      </g>;
+                    })}
+                    {activeRoute.stops.map((stop, index) => <g className={`route-stop stop-${stop.kind ?? "action"}`} style={{ color: routeColors[readiness] }} key={`${stop.label}-${index}`} transform={`translate(${stop.point[0]} ${stop.point[1]})`}>
+                      <circle r={stop.kind === "start" ? 2.25 : 1.8} />
+                      <text x="2.8" y="-2.2">{stop.label}</text>
+                    </g>)}
+                  </g>
+                  <path className="perimeter-line" d={activeShapePath} />
                   <text className="parent-label" x={activeRoute.path[0][0]} y="98">родители</text>
                 </svg>
                 {centerMode === "effect" && layers.links && connectionEntries.map((entry) => {
@@ -882,7 +972,7 @@ export default function Home() {
               const maxCount = maxCountFor(item);
               return <article key={item.id} className={`item-card ${count ? "selected" : ""}`}>
                 <span className={`swatch surface-${item.surface}`} style={{ "--item-color": item.color } as React.CSSProperties} aria-hidden="true">
-                  <span className={`mini-object shape-${item.shape}`} />
+                  <span className={`mini-object shape-${item.shape}`}>{renderObjectGlyph(item.shape)}</span>
                   <b>{count || "+"}</b>
                 </span>
                 <span className="item-copy"><strong>{item.name}</strong><small>{item.note}</small><em className={`surface-label surface-label-${item.surface}`}>{surfaceLabels[item.surface]} · {usersFor(item)} {usersFor(item) === 1 ? "ребёнок" : "ребёнка"}</em></span>
